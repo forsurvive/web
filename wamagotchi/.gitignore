@@ -1,0 +1,11 @@
+# Flutter/Dart 빌드 산출물
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE
+.idea/
+*.iml
+.vscode/

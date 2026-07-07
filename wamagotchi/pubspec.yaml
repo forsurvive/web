@@ -1,0 +1,23 @@
+name: wamagotchi
+description: "Wamagotchi - 글쓰기로 정령을 키우는 생산성 다마고치 (Phase 1 MVP)"
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # 상태 관리: 가장 대중적이고 학습 자료가 많은 Provider 채택 (기획서 7.1)
+  provider: ^6.1.2
+  # 로컬 저장소: 게임 상태/메모 영속화 (기획서 7.3)
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
