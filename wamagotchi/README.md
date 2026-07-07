@@ -26,7 +26,8 @@
 | 스프라이트 위젯 + 에셋 미탑재 시 텍스트 얼굴 폴백 (`pet_sprite.dart`) | ✔ |
 | 상태창을 스프라이트 무대 중심으로 재구성 | ✔ |
 | 갈무리 폰트 배선 (`fontFamily: 'Galmuri'` + 시스템 폴백) | ✔ (폰트 파일은 사용자 투입) |
-| **Higgsfield PNG · Galmuri .ttf 실제 파일 투입** | ⬜ 사용자 작업 → `assets/README.md` 참조 |
+| 정령 스프라이트 4종 (사용자 원화 → 잉크색 보정 → `assets/sprites/`) | ✔ 포함 완료 (원화는 `art_src/`) |
+| **Galmuri .ttf 폰트 파일 투입** | ⬜ 사용자 작업 → `assets/README.md` 2번 참조 |
 
 > ⚠️ **검증 상태**: 이 코드는 클라우드 세션에서 작성되었고, 해당 환경의 네트워크 정책이
 > Flutter SDK 다운로드(storage.googleapis.com)를 차단해 **빌드/테스트 실행은 아직 못 했습니다.**
