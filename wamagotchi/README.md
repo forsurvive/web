@@ -27,6 +27,11 @@
 | 상태창을 스프라이트 무대 중심으로 재구성 | ✔ |
 | 갈무리 폰트 배선 (`fontFamily: 'Galmuri'` + 시스템 폴백) | ✔ (폰트 파일은 사용자 투입) |
 | 정령 스프라이트 4종 (사용자 원화 → 잉크색 보정 → `assets/sprites/`) | ✔ 포함 완료 (원화는 `art_src/`) |
+| **— v2 UI 개정 (라이팅 퍼스트, 기획서 4장 v1.2) —** | |
+| 에디터 전면화 + 슬림 정령 칩(탭하면 상세 시트: 게이지·통계·로그) | ✔ |
+| 종이·잉크 테마 (게임보이 외형 폐기, 그린은 칩·게이지·버튼에만) | ✔ |
+| 초안 자동 저장 (0.8초 디바운스, 밥 주기는 저장 버튼만) | ✔ |
+| 메모 목록 검색 | ✔ |
 | **Galmuri .ttf 폰트 파일 투입** | ⬜ 사용자 작업 → `assets/README.md` 2번 참조 |
 
 > ⚠️ **검증 상태**: 이 코드는 클라우드 세션에서 작성되었고, 해당 환경의 네트워크 정책이
@@ -57,10 +62,10 @@ wamagotchi/
 │   │   ├── game_viewmodel.dart  # 정산·포만감 타이머·부화·이름 짓기
 │   │   └── memo_viewmodel.dart  # 메모 CRUD, "늘어난 글자 수" 계산
 │   └── views/
-│       ├── main_screen.dart     # 상태창+에디터 스플릿 뷰, 저장 버튼, 이름 다이얼로그
-│       ├── memo_list_screen.dart
+│       ├── main_screen.dart     # 라이팅 퍼스트: 정령 칩 한 줄 + 전면 에디터, 초안 자동 저장
+│       ├── memo_list_screen.dart # 메모 목록 + 검색
 │       └── widgets/
-│           ├── pet_status_panel.dart # 상단 상태창 (스프라이트 무대)
+│           ├── pet_status_bar.dart   # 슬림 정령 칩 + 상세 시트 (게이지·로그)
 │           └── pet_sprite.dart       # 레벨별 스프라이트(+폴백) (Phase 2)
 ├── assets/
 │   ├── README.md           # 스프라이트·폰트 넣는 법 (Phase 2)

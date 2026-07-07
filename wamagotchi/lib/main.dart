@@ -48,7 +48,7 @@ class WamagotchiApp extends StatelessWidget {
     );
   }
 
-  /// 레트로 LCD 테마 (Phase 1: 색상만. 픽셀 폰트·에셋은 Phase 2)
+  /// v2 "라이팅 퍼스트" 테마: 종이·잉크 기조, 게임 그린은 액션·칩에만.
   ThemeData _buildRetroTheme() {
     // 'Galmuri' 패밀리는 pubspec에서 폰트를 활성화하면 자동 적용된다.
     // 아직 폰트를 넣지 않았다면 등록되지 않은 패밀리로 취급되어 조용히 fallback 된다(에러 없음).
@@ -63,31 +63,29 @@ class WamagotchiApp extends StatelessWidget {
       ],
     );
     return base.copyWith(
-      scaffoldBackgroundColor: Palette.lcdGreen,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Palette.lcdDark,
-        foregroundColor: Palette.lcdLight,
-        centerTitle: false,
+      scaffoldBackgroundColor: Palette.paper,
+      colorScheme: base.colorScheme.copyWith(
+        primary: Palette.accent,
+        surface: Palette.surface,
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: Palette.lcdDark,
-        foregroundColor: Palette.lcdLight,
-        // 기획서 6.1: 모서리 둥글림 금지
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: Palette.accent,
+        foregroundColor: const Color(0xFFF4F6E8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       textTheme: base.textTheme.apply(
-        bodyColor: Palette.lcdDark,
-        displayColor: Palette.lcdDark,
+        bodyColor: Palette.ink,
+        displayColor: Palette.ink,
       ),
       textSelectionTheme: const TextSelectionThemeData(
-        cursorColor: Palette.lcdDark,
-        selectionColor: Palette.lcdMid,
-        selectionHandleColor: Palette.lcdDark,
+        cursorColor: Palette.accent,
+        selectionColor: Palette.track,
+        selectionHandleColor: Palette.accent,
       ),
-      snackBarTheme: const SnackBarThemeData(
-        backgroundColor: Palette.lcdDark,
-        contentTextStyle: TextStyle(color: Palette.lcdLight),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: Palette.ink,
+        contentTextStyle: const TextStyle(color: Palette.paper),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }

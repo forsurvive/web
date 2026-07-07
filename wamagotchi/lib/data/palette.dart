@@ -1,20 +1,41 @@
 import 'package:flutter/material.dart';
 
-/// 레트로 LCD 색상 팔레트 (기획서 6.1 — 고전 게임보이 감성).
-/// Phase 2에서 픽셀 폰트·스프라이트와 함께 본격 적용되지만,
-/// Phase 1에서도 기본 색은 이 팔레트만 사용한다.
+/// 색상 팔레트 — v2 "라이팅 퍼스트" 개정.
+///
+/// 화면의 주인공은 글쓰기 공간이므로 종이·잉크 기조의 차분한 색을 쓰고,
+/// 게임 아이덴티티(레트로 그린)는 정령 칩과 게이지에만 응축한다.
 class Palette {
   Palette._();
 
-  /// 배경: 칙칙한 연두색
+  // ── 종이 & 잉크 (앱 전반) ─────────────────────────────
+  /// 앱 배경 (은은한 종이색)
+  static const Color paper = Color(0xFFF2F1E8);
+
+  /// 카드·에디터 표면
+  static const Color surface = Color(0xFFFBFAF4);
+
+  /// 본문 텍스트
+  static const Color ink = Color(0xFF262B1E);
+
+  /// 보조 텍스트
+  static const Color muted = Color(0xFF83816F);
+
+  /// 얇은 구분선·테두리
+  static const Color line = Color(0xFFDCDACA);
+
+  // ── 게임 아이덴티티 (정령 칩·게이지·버튼) ─────────────
+  /// 액션·게이지 색 = 스프라이트 잉크색
+  static const Color accent = Color(0xFF0F380F);
+
+  /// 정령 칩의 작은 LCD 타일 (스프라이트 배경)
+  static const Color tile = Color(0xFFA9C43C);
+
+  /// 게이지 바탕
+  static const Color track = Color(0xFFE6E3D3);
+
+  // ── 하위 호환 별칭 (기존 코드 참조용) ─────────────────
   static const Color lcdGreen = Color(0xFF8BAC0F);
-
-  /// 밝은 연두 (패널 배경)
   static const Color lcdLight = Color(0xFF9BBC0F);
-
-  /// 중간 톤 (게이지 바탕)
   static const Color lcdMid = Color(0xFF306230);
-
-  /// 텍스트·테두리: 짙은 흑녹색
-  static const Color lcdDark = Color(0xFF0F380F);
+  static const Color lcdDark = accent;
 }

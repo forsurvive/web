@@ -70,6 +70,34 @@ class MemoViewModel extends ChangeNotifier {
     return (gained, memo);
   }
 
+  /// 초안 자동 저장: 제목/본문만 갱신하고 charCount는 건드리지 않는다.
+  ///
+  /// charCount는 "마지막으로 밥을 준 시점의 글자 수"이므로 여기서 바꾸면
+  /// 저장(밥 주기) 정산이 어긋난다. 새 메모라면 charCount 0으로 생성.
+  Future<Memo> saveDraft({
+    String? id,
+    required String title,
+    required String body,
+  }) async {
+    Memo? memo = findById(id);
+    if (memo == null) {
+      memo = Memo(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        title: title,
+        body: body,
+        charCount: 0,
+      );
+      _memos.add(memo);
+    } else {
+      memo.title = title;
+      memo.body = body;
+      memo.updatedAt = DateTime.now();
+    }
+    await _storage.saveMemos(_memos);
+    notifyListeners();
+    return memo;
+  }
+
   /// 메모 삭제. 정령에게 벌점은 없다 (기획서: 삭제 무벌점 원칙).
   Future<void> deleteMemo(String id) async {
     _memos.removeWhere((m) => m.id == id);
