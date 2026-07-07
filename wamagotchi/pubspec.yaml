@@ -21,3 +21,16 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Phase 2 픽셀 스프라이트 (Higgsfield 생성 PNG를 넣는 폴더)
+  # 파일이 아직 없어도 폴더만 있으면 빌드된다. PetSprite가 없는 이미지는 텍스트로 대체.
+  assets:
+    - assets/sprites/
+
+  # 갈무리 픽셀 폰트: 라이선스/용량 문제로 폰트 파일은 저장소에 포함하지 않는다.
+  # assets/README.md 안내대로 Galmuri11.ttf 를 내려받아 assets/fonts/ 에 넣은 뒤
+  # 아래 주석을 해제하세요. (파일이 없는 상태로 선언하면 빌드가 실패하므로 기본은 주석)
+  # fonts:
+  #   - family: Galmuri
+  #     fonts:
+  #       - asset: assets/fonts/Galmuri11.ttf

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/balance.dart';
 import '../../data/palette.dart';
+import '../../data/sprites.dart';
 import '../../viewmodels/game_viewmodel.dart';
+import 'pet_sprite.dart';
 
 /// 상단 정령 상태창 (기획서 4.1 🅰️ 영역).
 ///
-/// [compact]가 true면 로그를 숨긴다 (키보드가 올라왔을 때 화면 절약).
+/// Phase 2: 중앙에 레벨별 픽셀 스프라이트를 '주인공'으로 크게 배치.
+/// [compact]가 true면(키보드 열림) 스프라이트를 줄이고 로그를 숨긴다.
 class PetStatusPanel extends StatelessWidget {
   final bool compact;
 
@@ -16,6 +20,8 @@ class PetStatusPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final game = context.watch<GameViewModel>();
     final pet = game.state;
+    final stage = Sprites.forLevel(pet.level);
+    final fainted = pet.hunger <= Balance.hungerMin;
 
     return Container(
       width: double.infinity,
@@ -32,18 +38,9 @@ class PetStatusPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                pet.face,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '${pet.displayName}  Lv.${pet.level}',
+                  pet.displayName,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -52,12 +49,30 @@ class PetStatusPanel extends StatelessWidget {
                 ),
               ),
               Text(
-                '상태: ${pet.moodLabel}',
-                style: const TextStyle(fontSize: 12),
+                'Lv.${pet.level} · ${stage.label}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ],
           ),
+          const SizedBox(height: 8),
+
+          // 🎮 스프라이트 무대 (Phase 2 핵심)
+          Center(
+            child: PetSprite(
+              level: pet.level,
+              asciiFace: pet.face,
+              size: compact ? 54 : 96,
+              dim: fainted,
+            ),
+          ),
+          Center(
+            child: Text(
+              '상태: ${pet.moodLabel}',
+              style: const TextStyle(fontSize: 11),
+            ),
+          ),
           const SizedBox(height: 10),
+
           _GaugeBar(
             label: 'EXP',
             value: game.expProgress,

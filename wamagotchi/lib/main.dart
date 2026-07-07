@@ -50,7 +50,18 @@ class WamagotchiApp extends StatelessWidget {
 
   /// 레트로 LCD 테마 (Phase 1: 색상만. 픽셀 폰트·에셋은 Phase 2)
   ThemeData _buildRetroTheme() {
-    final base = ThemeData(useMaterial3: true);
+    // 'Galmuri' 패밀리는 pubspec에서 폰트를 활성화하면 자동 적용된다.
+    // 아직 폰트를 넣지 않았다면 등록되지 않은 패밀리로 취급되어 조용히 fallback 된다(에러 없음).
+    final base = ThemeData(
+      useMaterial3: true,
+      fontFamily: 'Galmuri',
+      fontFamilyFallback: const [
+        'Malgun Gothic', // Windows 한글
+        'Apple SD Gothic Neo', // macOS/iOS 한글
+        'Noto Sans KR',
+        'sans-serif',
+      ],
+    );
     return base.copyWith(
       scaffoldBackgroundColor: Palette.lcdGreen,
       appBarTheme: const AppBarTheme(

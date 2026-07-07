@@ -1,4 +1,4 @@
-# 📱 Wamagotchi — Phase 1 MVP
+# 📱 Wamagotchi — Phase 1 + Phase 2(비주얼)
 
 글쓰기로 정령을 키우는 생산성 다마고치. 이 폴더는 Flutter 앱 프로젝트입니다.
 
@@ -8,7 +8,7 @@
 
 ---
 
-## ✅ 현재 구현 상태 (Phase 1 MVP + P0 코어)
+## ✅ 현재 구현 상태 (Phase 1 MVP + Phase 2 비주얼)
 
 | 기능 | 상태 |
 |---|---|
@@ -19,8 +19,14 @@
 | 알(Lv.1~4) → Lv.5 부화 → **유저가 이름 직접 입력** (검증·이름 뽑기 🎲) | ✔ |
 | 기분 3종 (평온/시무룩/기절) + 텍스트 얼굴 | ✔ |
 | 상태창 로그 (성장·부화·첫 끼니 메시지) | ✔ |
-| 레트로 LCD 색상 팔레트 (#8BAC0F / #0F380F) | ✔ (색상만 — 폰트·픽셀아트는 Phase 2) |
+| 레트로 LCD 색상 팔레트 (#8BAC0F / #0F380F) | ✔ |
 | 게임 로직 단위 테스트 (`test/game_engine_test.dart`) | ✔ 작성됨 |
+| **— Phase 2 (비주얼) —** | |
+| 레벨별 스프라이트 교체 매핑 (알→유년기→성장→진화, `sprites.dart`) | ✔ |
+| 스프라이트 위젯 + 에셋 미탑재 시 텍스트 얼굴 폴백 (`pet_sprite.dart`) | ✔ |
+| 상태창을 스프라이트 무대 중심으로 재구성 | ✔ |
+| 갈무리 폰트 배선 (`fontFamily: 'Galmuri'` + 시스템 폴백) | ✔ (폰트 파일은 사용자 투입) |
+| **Higgsfield PNG · Galmuri .ttf 실제 파일 투입** | ⬜ 사용자 작업 → `assets/README.md` 참조 |
 
 > ⚠️ **검증 상태**: 이 코드는 클라우드 세션에서 작성되었고, 해당 환경의 네트워크 정책이
 > Flutter SDK 다운로드(storage.googleapis.com)를 차단해 **빌드/테스트 실행은 아직 못 했습니다.**
@@ -36,7 +42,8 @@ wamagotchi/
 │   ├── main.dart           # 앱 진입점 + 레트로 LCD 테마
 │   ├── data/
 │   │   ├── balance.dart    # ★ 모든 밸런스 수치 (여기만 고치면 수치 튜닝 끝)
-│   │   └── palette.dart    # LCD 색상 팔레트
+│   │   ├── palette.dart    # LCD 색상 팔레트
+│   │   └── sprites.dart    # 레벨→스프라이트 매핑 (Phase 2)
 │   ├── logic/
 │   │   └── game_engine.dart # ★ 순수 게임 규칙 (Flutter 무관 → 테스트 쉬움)
 │   ├── models/
@@ -51,7 +58,12 @@ wamagotchi/
 │   └── views/
 │       ├── main_screen.dart     # 상태창+에디터 스플릿 뷰, 저장 버튼, 이름 다이얼로그
 │       ├── memo_list_screen.dart
-│       └── widgets/pet_status_panel.dart # 상단 다마고치 상태창
+│       └── widgets/
+│           ├── pet_status_panel.dart # 상단 상태창 (스프라이트 무대)
+│           └── pet_sprite.dart       # 레벨별 스프라이트(+폴백) (Phase 2)
+├── assets/
+│   ├── README.md           # 스프라이트·폰트 넣는 법 (Phase 2)
+│   └── sprites/            # egg/hatchling/grown/evolved.png (사용자 투입)
 └── test/
     └── game_engine_test.dart    # 게임 규칙 단위 테스트
 ```
@@ -83,6 +95,6 @@ wamagotchi/
 
 ## 🗺️ 다음 단계
 
-- **Phase 2 (비주얼)**: Higgsfield 픽셀 스프라이트 적용(알→꼬마 정령), Galmuri 픽셀 폰트, 레벨별 이미지 교체
+- **Phase 2 (비주얼)** — 코드·배선 완료. 남은 일: `assets/README.md`대로 **스프라이트 PNG + 갈무리 .ttf 투입**(사용자 작업)
 - **Phase 3 (방치 모험)**: 탐험 틱·던전 로그 — `게임시스템_기획서.md` 5장 참조
-- 백로그: 붙여넣기 감액 등 어뷰징 방어(시스템 기획서 4.4), 개명 아이템, 기분 '신남'
+- 백로그: 붙여넣기 감액 등 어뷰징 방어(시스템 기획서 4.4), 개명 아이템, 기분 '신남', Flutter 스프라이트 idle 애니메이션
