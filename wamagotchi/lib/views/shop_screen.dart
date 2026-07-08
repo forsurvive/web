@@ -126,11 +126,40 @@ class _ItemCard extends StatelessWidget {
               ],
             ),
           ),
-          if (action != null) action!,
+          if (action != null) ...[
+            const SizedBox(width: 10),
+            action!,
+          ],
         ],
       ),
     );
   }
+}
+
+/// 상점 구매 버튼 — 확실히 '버튼'으로 보이도록 채움 스타일 (실기 피드백 반영)
+ButtonStyle _buyButtonStyle({required bool locked}) {
+  return FilledButton.styleFrom(
+    backgroundColor: locked ? Palette.track : Palette.accent,
+    foregroundColor: locked ? Palette.muted : const Color(0xFFF4F6E8),
+    disabledBackgroundColor: Palette.track,
+    disabledForegroundColor: Palette.muted,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    minimumSize: const Size(72, 36),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+  );
+}
+
+/// 가방 액션 버튼 — 테두리 스타일
+ButtonStyle _bagButtonStyle() {
+  return OutlinedButton.styleFrom(
+    foregroundColor: Palette.accent,
+    side: const BorderSide(color: Palette.accent, width: 1.2),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    minimumSize: const Size(60, 36),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+  );
 }
 
 /// 구매 탭
@@ -164,7 +193,8 @@ class _ShopTab extends StatelessWidget {
             return _ItemCard(
               item: item,
               badge: badge,
-              action: TextButton(
+              action: FilledButton(
+                style: _buyButtonStyle(locked: locked),
                 onPressed: owned
                     ? null
                     : () async {
@@ -175,14 +205,7 @@ class _ShopTab extends StatelessWidget {
                               context, error ?? '[${item.name}] 구매 완료!');
                         }
                       },
-                child: Text(
-                  '${item.price} M',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color:
-                        (owned || locked) ? Palette.muted : Palette.accent,
-                  ),
-                ),
+                child: Text(owned ? '보유 중' : '구매 ${item.price} M'),
               ),
             );
           }),
@@ -290,7 +313,8 @@ class _BagItem extends StatelessWidget {
     return _ItemCard(
       item: item,
       badge: count > 1 ? '×$count' : null,
-      action: TextButton(
+      action: OutlinedButton(
+        style: _bagButtonStyle(),
         onPressed: () async {
           final vm = context.read<GameViewModel>();
           final error = await action(vm);
@@ -298,13 +322,7 @@ class _BagItem extends StatelessWidget {
             _showSnack(context, error);
           }
         },
-        child: Text(
-          actionLabel,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Palette.accent,
-          ),
-        ),
+        child: Text(actionLabel),
       ),
     );
   }
