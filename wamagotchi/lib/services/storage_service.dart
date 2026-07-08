@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/hall_entry.dart';
 import '../models/memo.dart';
 import '../models/pet_state.dart';
 
@@ -13,6 +14,7 @@ class StorageService {
   static const _keyPetState = 'pet_state';
   static const _keyMemos = 'memos';
   static const _keyLogs = 'logs';
+  static const _keyHall = 'hall_of_fame';
 
   final SharedPreferences _prefs;
 
@@ -56,6 +58,25 @@ class StorageService {
   Future<void> saveMemos(List<Memo> memos) async {
     final list = memos.map((m) => m.toJson()).toList();
     await _prefs.setString(_keyMemos, jsonEncode(list));
+  }
+
+  // ── 명예의 전당 (Phase 5) ─────────────────────────────────
+  List<HallEntry> loadHall() {
+    final raw = _prefs.getString(_keyHall);
+    if (raw == null) return [];
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .map((e) => HallEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveHall(List<HallEntry> entries) async {
+    final list = entries.map((e) => e.toJson()).toList();
+    await _prefs.setString(_keyHall, jsonEncode(list));
   }
 
   // ── 로그 ──────────────────────────────────────────────────

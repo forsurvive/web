@@ -4,12 +4,15 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../data/balance.dart';
+import '../data/classes.dart';
 import '../data/dungeons.dart';
 import '../data/items.dart';
 import '../logic/adventure_engine.dart';
+import '../logic/evolution_engine.dart';
 import '../logic/game_engine.dart';
 import '../logic/keyword_engine.dart';
 import '../models/feed_result.dart';
+import '../models/hall_entry.dart';
 import '../models/pet_state.dart';
 import '../services/storage_service.dart';
 
@@ -25,6 +28,7 @@ class GameViewModel extends ChangeNotifier {
 
   PetState _state = PetState();
   List<String> _logs = [];
+  List<HallEntry> _hall = [];
   Timer? _timer;
 
   /// 집필 동기를 북돋는 특별 로그가 발생하면 호출된다 (화면이 하단 알림 표시).
@@ -54,17 +58,26 @@ class GameViewModel extends ChangeNotifier {
     return Dungeons.all[i];
   }
 
-  // ── 장비 (Phase 4) ─────────────────────────────────────
+  // ── 장비·클래스 (Phase 4~5) ────────────────────────────
   ItemSpec? get weapon => Items.byId(_state.weaponId);
   ItemSpec? get armor => Items.byId(_state.armorId);
   ItemSpec? get accessory => Items.byId(_state.accessoryId);
 
-  /// 장착 장비에서 오는 탐험 보정치
+  /// 확정된 클래스 (Lv.30 미만이면 null)
+  ClassSpec? get classSpec => Classes.byId(_state.classId);
+
+  /// 명예의 전당 (최신순)
+  List<HallEntry> get hall => List.unmodifiable(_hall);
+
+  /// 장착 장비 + 클래스에서 오는 탐험 보정치
   AdventureMods get mods => AdventureMods(
         atkBonus: weapon?.atkBonus ?? 0,
-        guardChance: armor?.guardChance ?? 0,
-        critBonus: accessory?.critBonus ?? 0,
+        guardChance:
+            (armor?.guardChance ?? 0) + (classSpec?.guardBonus ?? 0),
+        critBonus:
+            (accessory?.critBonus ?? 0) + (classSpec?.critBonus ?? 0),
         rareBonus: accessory?.rareBonus ?? 0,
+        roomsReduction: classSpec?.roomsReduction ?? 0,
       );
 
   /// 보유 여부 (장착 중 포함)
@@ -75,10 +88,16 @@ class GameViewModel extends ChangeNotifier {
         _state.accessoryId == id;
   }
 
-  /// [성취의 기운] 버프가 있으면 마나에 배율 적용
-  int _applyManaBuff(int mana) {
-    if (mana <= 0 || !_state.buffActive) return mana;
-    return (mana * Balance.buffManaMultiplier).round();
+  /// 마나 배율 적용: 클래스·장신구 배율 + 성취 버프.
+  /// [writing]이 true면 환생 배율(글자당 마나)도 곱한다.
+  int _scaleMana(int base, {bool writing = false}) {
+    if (base <= 0) return base;
+    var mult = 1.0 +
+        (classSpec?.manaRate ?? 0) +
+        (accessory?.manaRate ?? 0);
+    if (writing) mult *= _state.prestigeManaMult;
+    if (_state.buffActive) mult *= Balance.buffManaMultiplier;
+    return (base * mult).round();
   }
 
   /// 앱 시작 정산에서 쌓인 하이라이트를 1회 가져간다 (없으면 null)
@@ -91,6 +110,7 @@ class GameViewModel extends ChangeNotifier {
   Future<void> load() async {
     _state = _storage.loadPetState();
     _logs = _storage.loadLogs();
+    _hall = _storage.loadHall();
     if (_logs.isEmpty) {
       _addLog('알이 도착했다. 글을 쓰면 깨어난다…');
     }
@@ -109,8 +129,12 @@ class GameViewModel extends ChangeNotifier {
     if (chunks <= 0) return;
 
     final highlights = <String>[];
+    // 자동 먹이통(특수 아이템) 보유 시 자연 감소 저감
+    final feeder = Items.byId('auto_feeder');
+    final decayFactor =
+        ownsItem('auto_feeder') ? 1.0 - (feeder?.decayReduction ?? 0) : 1.0;
     final decayPerChunk =
-        Balance.tickMinutes * (Balance.hungerDecayPerHour / 60.0);
+        Balance.tickMinutes * (Balance.hungerDecayPerHour / 60.0) * decayFactor;
     var adventureTicks = 0;
 
     for (var i = 0; i < chunks; i++) {
@@ -154,10 +178,15 @@ class GameViewModel extends ChangeNotifier {
       roomsDone: _state.roomsDone,
       rng: _rng,
       mods: mods,
+      petPrestige: _state.prestigeCount,
     );
-    _state.mana += _applyManaBuff(outcome.manaGained);
+    _state.mana += _scaleMana(outcome.manaGained);
     _state.hunger =
         GameEngine.clampHunger(_state.hunger + outcome.hungerGained);
+    if (outcome.itemGained != null) {
+      _state.inventory[outcome.itemGained!] =
+          (_state.inventory[outcome.itemGained!] ?? 0) + 1;
+    }
     _state.dungeonIndex = outcome.dungeonIndex;
     _state.floor = outcome.floor;
     _state.roomsDone = outcome.roomsDone;
@@ -200,8 +229,16 @@ class GameViewModel extends ChangeNotifier {
     final firstSaveOfDay = _state.lastSaveYmd != today;
     final wasExploring = _state.isExploring;
 
-    // 1) 재화·경험치
-    final manaGained = _applyManaBuff(gainedChars * Balance.manaPerChar);
+    // 클래스 판정용 저장 통계 기록 (Phase 5)
+    _state.saveStats.add(SaveStat(now, gainedChars));
+    if (_state.saveStats.length > Balance.classStatsWindow) {
+      _state.saveStats.removeRange(
+          0, _state.saveStats.length - Balance.classStatsWindow);
+    }
+
+    // 1) 재화·경험치 (환생 배율은 글쓰기 마나에만)
+    final manaGained =
+        _scaleMana(gainedChars * Balance.manaPerChar, writing: true);
     final expGained = gainedChars * Balance.expPerChar;
     final wasEgg = _state.isEgg;
 
@@ -216,9 +253,10 @@ class GameViewModel extends ChangeNotifier {
     _state.level = expResult.level;
     _state.exp = expResult.exp;
 
-    // 2) 포만감
+    // 2) 포만감 (여명 사제는 회복 +15%)
     final hungerGain =
-        GameEngine.hungerGain(gainedChars, firstSaveOfDay: firstSaveOfDay);
+        GameEngine.hungerGain(gainedChars, firstSaveOfDay: firstSaveOfDay) *
+            (1 + (classSpec?.hungerGainRate ?? 0));
     _state.hunger = GameEngine.clampHunger(_state.hunger + hungerGain);
     _state.lastSaveYmd = today;
 
@@ -236,6 +274,19 @@ class GameViewModel extends ChangeNotifier {
     final justHatched = wasEgg && !_state.isEgg && _state.name == null;
     if (justHatched) {
       _addLog('알이 흔들리더니… 작은 정령이 깨어났다!');
+    }
+
+    // 4.5) 클래스 진화 판정 — Lv.30 도달 시 작업 패턴으로 확정 (Phase 5)
+    if (_state.level >= Balance.classLevel &&
+        _state.classId == null &&
+        !_state.isEgg) {
+      final judged = EvolutionEngine.judge(_state.saveStats);
+      _state.classId = judged;
+      final spec = Classes.byId(judged)!;
+      final message = '패턴 분석 완료! ${_state.displayName}은(는) '
+          '[${spec.name}](으)로 각성했다! — ${spec.desc}';
+      _addLog(message);
+      onHighlight?.call(message);
     }
 
     // 5) 탐험 재개 — 이 저장 덕분에 다시 출발했다면 알려서 동기를 북돋는다
@@ -297,7 +348,7 @@ class GameViewModel extends ChangeNotifier {
           _addLog(message);
           onHighlight?.call(message);
         case 'bug':
-          final bounty = _applyManaBuff(Balance.bugBountyMana);
+          final bounty = _scaleMana(Balance.bugBountyMana);
           _state.mana += bounty;
           final message = "'오류'의 기운에 이끌려 버그 벌레 출현! "
               '${_state.displayName}이(가) 처치 (+$bounty M)';
@@ -326,14 +377,18 @@ class GameViewModel extends ChangeNotifier {
   Future<String?> buyItem(String id) async {
     final item = Items.byId(id);
     if (item == null || !item.isBuyable) return '살 수 없는 물건이에요.';
-    if (item.isEquipment && ownsItem(id)) return '이미 갖고 있어요.';
+    if (_state.level < item.minLevel) {
+      return '레벨이 부족해요. (Lv.${item.minLevel} 필요)';
+    }
+    if (item.isUnique && ownsItem(id)) return '이미 갖고 있어요.';
     if (_state.mana < item.price) {
       return '마나가 부족해요. (${item.price - _state.mana} M 더 필요)';
     }
 
     _state.mana -= item.price;
     _state.inventory[id] = (_state.inventory[id] ?? 0) + 1;
-    _addLog('[${item.name}] 구매! (−${item.price} M)');
+    _addLog('[${item.name}] 구매! (−${item.price} M)'
+        '${item.type == ItemType.special ? ' — 영구 적용!' : ''}');
 
     // 빈 슬롯이면 바로 장착해 준다
     if (item.isEquipment) {
@@ -355,6 +410,9 @@ class GameViewModel extends ChangeNotifier {
   Future<String?> equipItem(String id) async {
     final item = Items.byId(id);
     if (item == null || !item.isEquipment) return '장착할 수 없는 물건이에요.';
+    if (_state.level < item.minLevel) {
+      return '레벨이 부족해요. (Lv.${item.minLevel} 필요)';
+    }
     if ((_state.inventory[id] ?? 0) <= 0) return '가방에 없는 장비예요.';
 
     _state.inventory[id] = (_state.inventory[id] ?? 1) - 1;
@@ -395,10 +453,29 @@ class GameViewModel extends ChangeNotifier {
     final wasExploring = _state.isExploring;
     _state.inventory[id] = (_state.inventory[id] ?? 1) - 1;
     if ((_state.inventory[id] ?? 0) <= 0) _state.inventory.remove(id);
-    _state.hunger =
-        GameEngine.clampHunger(_state.hunger + item.hungerRestore);
-    _addLog('[${item.name}] 사용 — 포만감 '
-        '+${item.hungerRestore.toStringAsFixed(0)}%');
+
+    if (item.hungerRestore > 0) {
+      _state.hunger =
+          GameEngine.clampHunger(_state.hunger + item.hungerRestore);
+      _addLog('[${item.name}] 사용 — 포만감 '
+          '+${item.hungerRestore.toStringAsFixed(0)}%');
+    }
+
+    // 카페인 물약: 즉시 탐험 전진 (Phase 5)
+    if (item.bonusTicks > 0) {
+      if (_state.isExploring) {
+        final message = '[${item.name}] 사용 — 번쩍! '
+            '${_state.displayName}이(가) 서둘러 전진한다!';
+        _addLog(message);
+        onHighlight?.call(message);
+        for (var i = 0; i < item.bonusTicks; i++) {
+          final outcome = _runAdventureTick();
+          if (outcome.highlight) onHighlight?.call(outcome.message);
+        }
+      } else {
+        _addLog('[${item.name}] 사용 — 하지만 정령은 아직 출발할 수 없다…');
+      }
+    }
 
     if (!wasExploring && _state.isExploring) {
       final message = '${_state.displayName}이(가) 기운을 차리고 '
@@ -406,6 +483,57 @@ class GameViewModel extends ChangeNotifier {
       _addLog(message);
       onHighlight?.call(message);
     }
+
+    await _persist();
+    notifyListeners();
+    return null;
+  }
+
+  // ── 환생 (Phase 5 — 시스템 기획서 9장) ──────────────────
+
+  /// Lv.100 정령을 은퇴시키고 새로운 알로 세대교체한다.
+  /// 성공하면 null, 불가하면 에러 메시지.
+  Future<String?> retire() async {
+    if (_state.level < Balance.maxLevel) {
+      return 'Lv.${Balance.maxLevel}에 도달해야 은퇴할 수 있어요.';
+    }
+
+    final now = DateTime.now();
+    final entry = HallEntry(
+      generation: _state.prestigeCount + 1,
+      name: _state.name ?? '이름 없는 정령',
+      className: classSpec?.name ?? '모험가',
+      chars: _state.totalChars - _state.lifeStartTotalChars,
+      days: now.difference(_state.lifeStartAt).inDays + 1,
+      dungeonName: dungeon.name,
+      floor: _state.floor,
+      retiredAt: now,
+    );
+    _hall.insert(0, entry);
+    await _storage.saveHall(_hall);
+
+    final farewell = "'${entry.name}'이(가) 명예의 전당에 올랐다! "
+        '(${entry.generation}세대 · 함께 쓴 ${entry.chars}자)';
+    _addLog(farewell);
+    onHighlight?.call(farewell);
+
+    // 세대교체: 마나·장비·가방·전당은 유지, 성장은 처음부터
+    _state.prestigeCount += 1;
+    _state.name = null;
+    _state.level = 1;
+    _state.exp = 0;
+    _state.hunger = Balance.hungerMax;
+    _state.classId = null;
+    _state.saveStats = [];
+    _state.dungeonIndex = 0;
+    _state.floor = 1;
+    _state.roomsDone = 0;
+    _state.buffManaUntil = null;
+    _state.lifeStartTotalChars = _state.totalChars;
+    _state.lifeStartAt = now;
+
+    _addLog('새로운 알이 도착했다. 이제 글자당 마나 '
+        '×${_state.prestigeManaMult.toStringAsFixed(2)}!');
 
     await _persist();
     notifyListeners();

@@ -5,6 +5,7 @@ import '../../data/balance.dart';
 import '../../data/palette.dart';
 import '../../data/sprites.dart';
 import '../../viewmodels/game_viewmodel.dart';
+import '../hall_screen.dart';
 import '../shop_screen.dart';
 import 'pet_sprite.dart';
 
@@ -114,7 +115,7 @@ class _MiniBar extends StatelessWidget {
   }
 }
 
-/// 정령 상세 시트 열기 (시트에서 '상점·가방'을 누르면 상점 화면으로)
+/// 정령 상세 시트 열기 (상점·전당·은퇴 액션 처리)
 Future<void> showPetDetailSheet(BuildContext context) async {
   final action = await showModalBottomSheet<String>(
     context: context,
@@ -124,10 +125,71 @@ Future<void> showPetDetailSheet(BuildContext context) async {
     ),
     builder: (_) => const PetDetailSheet(),
   );
-  if (action == 'shop' && context.mounted) {
+  if (!context.mounted) return;
+
+  if (action == 'shop') {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ShopScreen()),
     );
+  } else if (action == 'hall') {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const HallScreen()),
+    );
+  } else if (action == 'retire') {
+    await _confirmRetire(context);
+  }
+}
+
+/// 은퇴(환생) 확인 다이얼로그 (Phase 5)
+Future<void> _confirmRetire(BuildContext context) async {
+  final game = context.read<GameViewModel>();
+  final pet = game.state;
+  final nextMult =
+      (pet.prestigeManaMult + (pet.prestigeCount == 0 ? 0.5 : 0.25))
+          .toStringAsFixed(2);
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: Palette.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Palette.line),
+      ),
+      title: const Text('명예로운 은퇴',
+          style: TextStyle(color: Palette.ink, fontSize: 17)),
+      content: Text(
+        "'${pet.displayName}'을(를) 은퇴시키면 명예의 전당에 기록되고\n"
+        '새로운 알과 함께 1레벨부터 다시 시작해요.\n\n'
+        '· 유지: 마나, 장비, 가방, 전당 기록\n'
+        '· 초기화: 레벨, 클래스, 던전 진행\n'
+        '· 보상: 글자당 마나 ×$nextMult (영구)',
+        style: const TextStyle(
+            fontSize: 13, color: Palette.muted, height: 1.6),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('아직은…', style: TextStyle(color: Palette.muted)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text(
+            '은퇴식 거행!',
+            style: TextStyle(
+                color: Palette.accent, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed == true && context.mounted) {
+    final error = await context.read<GameViewModel>().retire();
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error)));
+    }
   }
 }
 
@@ -181,12 +243,24 @@ class PetDetailSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Lv.${pet.level} · ${stage.label} · ${pet.moodLabel}',
+                        'Lv.${pet.level} · '
+                        '${game.classSpec?.name ?? stage.label} · '
+                        '${pet.moodLabel}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Palette.muted,
                         ),
                       ),
+                      if (pet.prestigeCount > 0)
+                        Text(
+                          '🏆 ${pet.prestigeCount + 1}세대 · 글자당 마나 '
+                          '×${pet.prestigeManaMult.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Palette.accent,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -254,24 +328,67 @@ class PetDetailSheet extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Palette.accent,
-                  side: const BorderSide(color: Palette.line),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Palette.accent,
+                      side: const BorderSide(color: Palette.line),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: const Icon(Icons.storefront_outlined, size: 18),
+                    label: const Text(
+                      '상점 · 가방',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => Navigator.of(context).pop('shop'),
                   ),
                 ),
-                icon: const Icon(Icons.storefront_outlined, size: 18),
-                label: const Text(
-                  '상점 · 가방',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Palette.accent,
+                      side: const BorderSide(color: Palette.line),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: const Icon(Icons.emoji_events_outlined, size: 18),
+                    label: const Text(
+                      '명예의 전당',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => Navigator.of(context).pop('hall'),
+                  ),
                 ),
-                onPressed: () => Navigator.of(context).pop('shop'),
-              ),
+              ],
             ),
+            if (pet.level >= Balance.maxLevel)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Palette.accent,
+                      foregroundColor: const Color(0xFFF4F6E8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: const Icon(Icons.auto_awesome, size: 18),
+                    label: const Text(
+                      '명예로운 은퇴 (환생)',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => Navigator.of(context).pop('retire'),
+                  ),
+                ),
+              ),
             const SizedBox(height: 12),
             Container(height: 1, color: Palette.line),
             const SizedBox(height: 10),

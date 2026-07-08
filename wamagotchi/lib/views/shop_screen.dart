@@ -142,40 +142,56 @@ class _ShopTab extends StatelessWidget {
     final game = context.watch<GameViewModel>();
     final items = Items.all.where((i) => i.isBuyable).toList();
 
+    final level = game.state.level;
+
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
         for (final item in items)
-          _ItemCard(
-            item: item,
-            badge: item.isEquipment && game.ownsItem(item.id) ? '보유 중' : null,
-            action: TextButton(
-              onPressed: item.isEquipment && game.ownsItem(item.id)
-                  ? null
-                  : () async {
-                      final vm = context.read<GameViewModel>();
-                      final error = await vm.buyItem(item.id);
-                      if (context.mounted) {
-                        _showSnack(
-                            context, error ?? '[${item.name}] 구매 완료!');
-                      }
-                    },
-              child: Text(
-                '${item.price} M',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: item.isEquipment && game.ownsItem(item.id)
-                      ? Palette.muted
-                      : Palette.accent,
+          Builder(builder: (context) {
+            final owned = item.isUnique && game.ownsItem(item.id);
+            final locked = level < item.minLevel;
+            final String? badge;
+            if (owned) {
+              badge = '보유 중';
+            } else if (locked) {
+              badge = '🔒 Lv.${item.minLevel} 필요';
+            } else if (item.minLevel > 1) {
+              badge = 'Lv.${item.minLevel}';
+            } else {
+              badge = null;
+            }
+            return _ItemCard(
+              item: item,
+              badge: badge,
+              action: TextButton(
+                onPressed: owned
+                    ? null
+                    : () async {
+                        final vm = context.read<GameViewModel>();
+                        final error = await vm.buyItem(item.id);
+                        if (context.mounted) {
+                          _showSnack(
+                              context, error ?? '[${item.name}] 구매 완료!');
+                        }
+                      },
+                child: Text(
+                  '${item.price} M',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color:
+                        (owned || locked) ? Palette.muted : Palette.accent,
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          }),
         const SizedBox(height: 6),
         const Text(
-          '마나는 글을 쓰고 정령이 모험하며 모입니다.',
+          '마나는 글을 쓰고 정령이 모험하며 모입니다.\n'
+          '🔒 잠긴 물건은 레벨을 올리면 살 수 있어요.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11, color: Palette.muted),
+          style: TextStyle(fontSize: 11, color: Palette.muted, height: 1.6),
         ),
       ],
     );
@@ -252,6 +268,11 @@ class _BagItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final item = Items.byId(id)!;
+
+    // 특수 아이템(자동 먹이통 등)은 보유만으로 영구 적용 — 조작 불필요
+    if (item.type == ItemType.special) {
+      return _ItemCard(item: item, badge: '영구 적용 중');
+    }
 
     String actionLabel;
     Future<String?> Function(GameViewModel vm) action;

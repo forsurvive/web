@@ -1,5 +1,6 @@
 import '../data/balance.dart';
 import '../data/items.dart';
+import '../logic/evolution_engine.dart';
 
 /// 정령(펫)의 상태.
 ///
@@ -48,6 +49,22 @@ class PetState {
   String? kwYmd;
   Map<String, int> kwUsed;
 
+  // ── 클래스·환생 (Phase 5) ───────────────────────────────
+  /// Lv.30에 확정되는 클래스 (Classes id). null이면 미확정.
+  String? classId;
+
+  /// 클래스 판정용 최근 저장 통계 (최대 30개)
+  List<SaveStat> saveStats;
+
+  /// 환생(은퇴) 횟수
+  int prestigeCount;
+
+  /// 이 생애가 시작될 때의 누적 글자 수 (전당 기록용)
+  int lifeStartTotalChars;
+
+  /// 이 생애의 시작 시각
+  DateTime lifeStartAt;
+
   /// 포만감 자연 감소를 마지막으로 정산한 시각
   DateTime lastHungerTickAt;
 
@@ -73,13 +90,27 @@ class PetState {
     this.buffManaUntil,
     this.kwYmd,
     Map<String, int>? kwUsed,
+    this.classId,
+    List<SaveStat>? saveStats,
+    this.prestigeCount = 0,
+    this.lifeStartTotalChars = 0,
+    DateTime? lifeStartAt,
     DateTime? lastHungerTickAt,
     this.lastSaveYmd,
     DateTime? createdAt,
   })  : inventory = inventory ?? {},
         kwUsed = kwUsed ?? {},
+        saveStats = saveStats ?? [],
+        lifeStartAt = lifeStartAt ?? DateTime.now(),
         lastHungerTickAt = lastHungerTickAt ?? DateTime.now(),
         createdAt = createdAt ?? DateTime.now();
+
+  /// 환생에 따른 글자당 마나 배율 (첫 환생 1.5배, 이후 +0.25)
+  double get prestigeManaMult => prestigeCount <= 0
+      ? 1.0
+      : 1.0 +
+          Balance.prestigeFirstBonus +
+          Balance.prestigeExtraBonus * (prestigeCount - 1);
 
   /// [성취의 기운] 버프가 지금 활성인가
   bool get buffActive =>
@@ -133,6 +164,11 @@ class PetState {
         'buffManaUntil': buffManaUntil?.toIso8601String(),
         'kwYmd': kwYmd,
         'kwUsed': kwUsed,
+        'classId': classId,
+        'saveStats': saveStats.map((s) => s.toJson()).toList(),
+        'prestigeCount': prestigeCount,
+        'lifeStartTotalChars': lifeStartTotalChars,
+        'lifeStartAt': lifeStartAt.toIso8601String(),
         'lastHungerTickAt': lastHungerTickAt.toIso8601String(),
         'lastSaveYmd': lastSaveYmd,
         'createdAt': createdAt.toIso8601String(),
@@ -162,6 +198,17 @@ class PetState {
       kwUsed: (json['kwUsed'] as Map<String, dynamic>?)
               ?.map((k, v) => MapEntry(k, (v as num).toInt())) ??
           {},
+      classId: json['classId'] as String?,
+      saveStats: (json['saveStats'] as List<dynamic>?)
+              ?.map((e) => SaveStat.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      prestigeCount: (json['prestigeCount'] as num?)?.toInt() ?? 0,
+      lifeStartTotalChars:
+          (json['lifeStartTotalChars'] as num?)?.toInt() ?? 0,
+      lifeStartAt: json['lifeStartAt'] != null
+          ? DateTime.parse(json['lifeStartAt'] as String)
+          : DateTime.now(),
       lastHungerTickAt: json['lastHungerTickAt'] != null
           ? DateTime.parse(json['lastHungerTickAt'] as String)
           : DateTime.now(),

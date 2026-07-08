@@ -8,6 +8,7 @@ import 'dart:math';
 
 import '../data/balance.dart';
 import '../data/dungeons.dart';
+import '../data/items.dart';
 
 /// 장비에서 오는 탐험 보정치 (Phase 4)
 class AdventureMods {
@@ -23,11 +24,15 @@ class AdventureMods {
   /// 장신구: 희귀 전리품 확률 보너스
   final double rareBonus;
 
+  /// 클래스(암살자): 층 돌파 필요 룸 수 감소
+  final int roomsReduction;
+
   const AdventureMods({
     this.atkBonus = 0,
     this.guardChance = 0,
     this.critBonus = 0,
     this.rareBonus = 0,
+    this.roomsReduction = 0,
   });
 
   static const AdventureMods none = AdventureMods();
@@ -43,6 +48,9 @@ class TickOutcome {
   final int manaGained;
   final double hungerGained;
 
+  /// 획득한 아이템 id (희귀 전리품 — 가방으로)
+  final String? itemGained;
+
   // 틱 이후의 위치
   final int dungeonIndex;
   final int floor;
@@ -53,6 +61,7 @@ class TickOutcome {
     required this.highlight,
     required this.manaGained,
     required this.hungerGained,
+    this.itemGained,
     required this.dungeonIndex,
     required this.floor,
     required this.roomsDone,
@@ -89,7 +98,7 @@ class AdventureEngine {
     return 15 + 6 * floor + (rare ? 150 : 0);
   }
 
-  /// 탐험 틱 1회 실행.
+  /// 탐험 틱 1회 실행. [petPrestige]는 심층 던전 개방 판정용 (Phase 5).
   static TickOutcome runTick({
     required String petName,
     required int petLevel,
@@ -98,6 +107,7 @@ class AdventureEngine {
     required int roomsDone,
     required Random rng,
     AdventureMods mods = AdventureMods.none,
+    int petPrestige = 0,
   }) {
     final di = _clampInt(dungeonIndex, 0, Dungeons.all.length - 1);
     final dungeon = Dungeons.all[di];
@@ -110,10 +120,11 @@ class AdventureEngine {
       final win = rng.nextDouble() < winChance(effLevel, boss.level);
       if (win) {
         final mana = battleReward(boss, f);
-        // 다음 던전 개방 or 같은 던전 재입장
+        // 다음 던전 개방 or 같은 던전 재입장 (레벨 + 환생 조건)
         final nextIndex = di + 1;
         if (nextIndex < Dungeons.all.length &&
-            petLevel >= Dungeons.all[nextIndex].minLevel) {
+            petLevel >= Dungeons.all[nextIndex].minLevel &&
+            petPrestige >= Dungeons.all[nextIndex].minPrestige) {
           return TickOutcome(
             message: '보스 ${boss.name} 격파! ${dungeon.name} 클리어!! '
                 '(+$mana M) → 다음 목적지: ${Dungeons.all[nextIndex].name}',
@@ -166,6 +177,7 @@ class AdventureEngine {
     bool highlight = false;
     int mana = 0;
     double hunger = 0;
+    String? itemGained;
     var newFloor = f;
     var newRooms = roomsDone;
 
@@ -211,10 +223,13 @@ class AdventureEngine {
       // 보물
       final rare =
           rng.nextDouble() < (Balance.rareTreasureChance + mods.rareBonus);
-      mana = treasureReward(f, rare: rare);
+      mana = treasureReward(f, rare: false);
       if (rare) {
-        final loot = dungeon.lootNames[rng.nextInt(dungeon.lootNames.length)];
-        message = '희귀 전리품 [$loot] 발견! (+$mana M)';
+        // 희귀 전리품은 실제 아이템으로 가방에 들어간다 (Phase 5)
+        itemGained =
+            dungeon.lootItemIds[rng.nextInt(dungeon.lootItemIds.length)];
+        final lootName = Items.byId(itemGained)?.name ?? itemGained;
+        message = '희귀 전리품 [$lootName] 발견! 가방에 넣었다 (+$mana M)';
         highlight = true;
       } else {
         message = '${dungeon.name} $f층에서 보물 발견! (+$mana M)';
@@ -228,8 +243,10 @@ class AdventureEngine {
       newRooms += 1;
     }
 
-    // ── 층 돌파 판정 ─────────────────────────────────────
-    if (newRooms >= roomsPerFloor(f)) {
+    // ── 층 돌파 판정 (암살자는 필요 룸 −1, 최소 2) ────────
+    var required = roomsPerFloor(f) - mods.roomsReduction;
+    if (required < 2) required = 2;
+    if (newRooms >= required) {
       newFloor = f + 1;
       newRooms = 0;
       message = '$message — ${dungeon.name} $newFloor층 돌파!';
@@ -241,6 +258,7 @@ class AdventureEngine {
       highlight: highlight,
       manaGained: mana,
       hungerGained: hunger,
+      itemGained: itemGained,
       dungeonIndex: di,
       floor: newFloor,
       roomsDone: newRooms,

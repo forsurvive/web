@@ -88,6 +88,31 @@ class Balance {
   /// 마감 키워드: 즉시 진행하는 보너스 탐험 틱 수
   static const int deadlineBonusTicks = 2;
 
+  // ── 클래스 진화 (Phase 5 — 시스템 기획서 2.2) ─────────────────
+  /// 클래스가 확정되는 레벨
+  static const int classLevel = 30;
+
+  /// 판정에 사용할 최근 저장 통계 개수
+  static const int classStatsWindow = 30;
+
+  /// 심야형(22~02시)·아침형(05~09시) 판정 비중
+  static const double classNightShare = 0.4;
+  static const double classMorningShare = 0.4;
+
+  /// 단문형: 평균 저장 글자 수 미만
+  static const int classShortAvgChars = 300;
+
+  /// 장문형: 이 글자 수 이상 저장의 비중
+  static const int classLongChars = 2000;
+  static const double classLongShare = 0.3;
+
+  // ── 환생 (Phase 5 — 시스템 기획서 9장) ────────────────────────
+  /// 첫 환생 시 글자당 마나 배율 증가분 (1.0 → 1.5)
+  static const double prestigeFirstBonus = 0.5;
+
+  /// 이후 환생마다 추가 배율
+  static const double prestigeExtraBonus = 0.25;
+
   // ── 성장 단계 (시스템 기획서 1.4) ─────────────────────────────
   /// 알이 부화하는 레벨 (부화 시 유저가 이름을 지어 준다)
   static const int hatchLevel = 5;
