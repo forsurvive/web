@@ -37,17 +37,29 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// 초안 자동 저장 디바운스
   Timer? _draftTimer;
 
+  /// dispose에서 콜백 해제용 (dispose에서는 context.read를 쓸 수 없다)
+  late final GameViewModel _gameVM;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // 앱을 껐다 켰을 때: 부화했지만 아직 이름이 없는 정령이 있으면 이름을 물어본다
+    // 특별한 모험 로그(층 돌파·보스 격파·희귀 전리품 등)를 하단 알림으로
+    _gameVM = context.read<GameViewModel>();
+    _gameVM.onHighlight = _showSnack;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final game = context.read<GameViewModel>();
+      // 앱을 껐다 켰을 때: 이름 없는 부화 정령이 있으면 이름을 물어본다
       if (game.state.needsNaming) {
         _showNamingDialog();
+      }
+      // 부재중(오프라인) 정산에서 쌓인 모험 하이라이트 알림
+      final pending = game.takePendingHighlight();
+      if (pending != null) {
+        _showSnack(pending);
       }
     });
   }
@@ -55,6 +67,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _gameVM.onHighlight = null;
     _draftTimer?.cancel();
     _titleController.dispose();
     _bodyController.dispose();
@@ -63,9 +76,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 백그라운드에 있다가 돌아오면 그동안의 포만감 감소를 정산
+    // 백그라운드에 있다가 돌아오면 그동안의 포만감·탐험을 정산
     if (state == AppLifecycleState.resumed && mounted) {
-      context.read<GameViewModel>().applyTimeDecay();
+      context.read<GameViewModel>().settle();
     }
   }
 

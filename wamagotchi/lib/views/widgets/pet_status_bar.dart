@@ -216,6 +216,18 @@ class PetDetailSheet extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 6),
+            Text(
+              pet.isEgg
+                  ? '알은 아직 모험을 떠날 수 없어요.'
+                  : pet.isExploring
+                      ? '🗺 ${game.dungeon.name} ${pet.floor}층 탐험 중 '
+                          '(${Balance.tickMinutes}분마다 전진)'
+                      : '탐험 대기 중 — 포만감 '
+                          '${Balance.exploreHungerThreshold.toStringAsFixed(0)}% '
+                          ' 이상이면 출발해요. 글을 써 주세요!',
+              style: const TextStyle(fontSize: 11, color: Palette.muted),
+            ),
             const SizedBox(height: 12),
             Container(height: 1, color: Palette.line),
             const SizedBox(height: 10),

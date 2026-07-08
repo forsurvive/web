@@ -20,6 +20,16 @@ class PetState {
   /// 함께 쓴 누적 글자 수 (통계 · 훗날 명예의 전당 기록용)
   int totalChars;
 
+  // ── 방치형 탐험 위치 (Phase 3) ──────────────────────────
+  /// 현재 던전 (Dungeons.all 인덱스)
+  int dungeonIndex;
+
+  /// 현재 층 (1부터)
+  int floor;
+
+  /// 현재 층에서 진행한 룸 수
+  int roomsDone;
+
   /// 포만감 자연 감소를 마지막으로 정산한 시각
   DateTime lastHungerTickAt;
 
@@ -35,11 +45,18 @@ class PetState {
     this.mana = 0,
     this.hunger = Balance.hungerMax,
     this.totalChars = 0,
+    this.dungeonIndex = 0,
+    this.floor = 1,
+    this.roomsDone = 0,
     DateTime? lastHungerTickAt,
     this.lastSaveYmd,
     DateTime? createdAt,
   })  : lastHungerTickAt = lastHungerTickAt ?? DateTime.now(),
         createdAt = createdAt ?? DateTime.now();
+
+  /// 지금 탐험이 가동 중인가 (포만감 조건)
+  bool get isExploring =>
+      !isEgg && hunger >= Balance.exploreHungerThreshold;
 
   /// 아직 알인가? (부화 레벨 미만)
   bool get isEgg => level < Balance.hatchLevel;
@@ -75,6 +92,9 @@ class PetState {
         'mana': mana,
         'hunger': hunger,
         'totalChars': totalChars,
+        'dungeonIndex': dungeonIndex,
+        'floor': floor,
+        'roomsDone': roomsDone,
         'lastHungerTickAt': lastHungerTickAt.toIso8601String(),
         'lastSaveYmd': lastSaveYmd,
         'createdAt': createdAt.toIso8601String(),
@@ -88,6 +108,9 @@ class PetState {
       mana: (json['mana'] as num?)?.toInt() ?? 0,
       hunger: (json['hunger'] as num?)?.toDouble() ?? Balance.hungerMax,
       totalChars: (json['totalChars'] as num?)?.toInt() ?? 0,
+      dungeonIndex: (json['dungeonIndex'] as num?)?.toInt() ?? 0,
+      floor: (json['floor'] as num?)?.toInt() ?? 1,
+      roomsDone: (json['roomsDone'] as num?)?.toInt() ?? 0,
       lastHungerTickAt: json['lastHungerTickAt'] != null
           ? DateTime.parse(json['lastHungerTickAt'] as String)
           : DateTime.now(),
