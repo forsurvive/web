@@ -36,7 +36,10 @@ jobs:
           cache: true
 
       - name: 안드로이드 플랫폼 폴더 생성 (저장소에는 Dart 코드만 있음)
-        run: flutter create --org com.oldtower --project-name wamagotchi --platforms android .
+        run: |
+          flutter create --org com.oldtower --project-name wamagotchi --platforms android .
+          # flutter create가 만드는 기본 카운터앱 테스트는 이 앱과 무관하므로 제거
+          rm -f test/widget_test.dart
 
       - name: 의존성 설치
         run: flutter pub get

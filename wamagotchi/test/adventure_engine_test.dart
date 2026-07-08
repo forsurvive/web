@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamagotchi/data/balance.dart';
 import 'package:wamagotchi/data/dungeons.dart';
+import 'package:wamagotchi/data/items.dart';
 import 'package:wamagotchi/logic/adventure_engine.dart';
 
 void main() {
@@ -43,7 +44,11 @@ void main() {
           true,
           reason: '${d.name}: 1층에서 만날 일반 몬스터가 필요',
         );
-        expect(d.lootNames.isNotEmpty, true, reason: d.name);
+        expect(d.lootItemIds.isNotEmpty, true, reason: d.name);
+        for (final lootId in d.lootItemIds) {
+          expect(Items.byId(lootId), isNotNull,
+              reason: '${d.name}: 전리품 $lootId 는 아이템 데이터에 있어야 한다');
+        }
       }
     });
 
