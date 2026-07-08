@@ -65,6 +65,33 @@ class PetState {
   /// 이 생애의 시작 시각
   DateTime lifeStartAt;
 
+  // ── 친밀도·교감 (Phase 5 2차) ───────────────────────────
+  /// 친밀도 (누적, 내려가지 않음)
+  int bond;
+
+  /// 쓰다듬기 일일 카운트 (날짜 + 횟수)
+  String? patYmd;
+  int patsToday;
+
+  // ── 정령의 부탁 (일일 퀘스트) ───────────────────────────
+  String? questYmd;
+  String? questId;
+  int questProgress;
+  bool questDone;
+
+  // ── 스트릭 (연속 저장 일수) ─────────────────────────────
+  int streak;
+  int streakBest;
+
+  // ── 업적·칭호 ───────────────────────────────────────────
+  List<String> achievements;
+  String? titleId;
+
+  // ── 정령의 편지 (주간) ──────────────────────────────────
+  /// 마지막으로 편지를 보낸 주 (epoch 기준 주 번호)
+  int letterWeek;
+  String? lastLetter;
+
   /// 포만감 자연 감소를 마지막으로 정산한 시각
   DateTime lastHungerTickAt;
 
@@ -95,15 +122,44 @@ class PetState {
     this.prestigeCount = 0,
     this.lifeStartTotalChars = 0,
     DateTime? lifeStartAt,
+    this.bond = 0,
+    this.patYmd,
+    this.patsToday = 0,
+    this.questYmd,
+    this.questId,
+    this.questProgress = 0,
+    this.questDone = false,
+    this.streak = 0,
+    this.streakBest = 0,
+    List<String>? achievements,
+    this.titleId,
+    this.letterWeek = 0,
+    this.lastLetter,
     DateTime? lastHungerTickAt,
     this.lastSaveYmd,
     DateTime? createdAt,
   })  : inventory = inventory ?? {},
         kwUsed = kwUsed ?? {},
         saveStats = saveStats ?? [],
+        achievements = achievements ?? [],
         lifeStartAt = lifeStartAt ?? DateTime.now(),
         lastHungerTickAt = lastHungerTickAt ?? DateTime.now(),
         createdAt = createdAt ?? DateTime.now();
+
+  /// 친밀도 레벨 (1~10)
+  int get bondLevel {
+    final level = bond ~/ Balance.bondPerLevel + 1;
+    return level > Balance.bondMaxLevel ? Balance.bondMaxLevel : level;
+  }
+
+  /// 친밀도 호칭
+  String get bondLabel {
+    const labels = [
+      '낯섦', '아는 사이', '친구', '가까운 친구', '단짝',
+      '소중한 사이', '가족', '깊은 유대', '마음의 짝', '운명의 단짝',
+    ];
+    return labels[bondLevel - 1];
+  }
 
   /// 환생에 따른 글자당 마나 배율 (첫 환생 1.5배, 이후 +0.25)
   double get prestigeManaMult => prestigeCount <= 0
@@ -169,6 +225,19 @@ class PetState {
         'prestigeCount': prestigeCount,
         'lifeStartTotalChars': lifeStartTotalChars,
         'lifeStartAt': lifeStartAt.toIso8601String(),
+        'bond': bond,
+        'patYmd': patYmd,
+        'patsToday': patsToday,
+        'questYmd': questYmd,
+        'questId': questId,
+        'questProgress': questProgress,
+        'questDone': questDone,
+        'streak': streak,
+        'streakBest': streakBest,
+        'achievements': achievements,
+        'titleId': titleId,
+        'letterWeek': letterWeek,
+        'lastLetter': lastLetter,
         'lastHungerTickAt': lastHungerTickAt.toIso8601String(),
         'lastSaveYmd': lastSaveYmd,
         'createdAt': createdAt.toIso8601String(),
@@ -209,6 +278,22 @@ class PetState {
       lifeStartAt: json['lifeStartAt'] != null
           ? DateTime.parse(json['lifeStartAt'] as String)
           : DateTime.now(),
+      bond: (json['bond'] as num?)?.toInt() ?? 0,
+      patYmd: json['patYmd'] as String?,
+      patsToday: (json['patsToday'] as num?)?.toInt() ?? 0,
+      questYmd: json['questYmd'] as String?,
+      questId: json['questId'] as String?,
+      questProgress: (json['questProgress'] as num?)?.toInt() ?? 0,
+      questDone: json['questDone'] as bool? ?? false,
+      streak: (json['streak'] as num?)?.toInt() ?? 0,
+      streakBest: (json['streakBest'] as num?)?.toInt() ?? 0,
+      achievements: (json['achievements'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      titleId: json['titleId'] as String?,
+      letterWeek: (json['letterWeek'] as num?)?.toInt() ?? 0,
+      lastLetter: json['lastLetter'] as String?,
       lastHungerTickAt: json['lastHungerTickAt'] != null
           ? DateTime.parse(json['lastHungerTickAt'] as String)
           : DateTime.now(),

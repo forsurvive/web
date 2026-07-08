@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/achievements.dart';
 import '../../data/balance.dart';
 import '../../data/palette.dart';
 import '../../data/sprites.dart';
+import '../../logic/game_engine.dart';
 import '../../viewmodels/game_viewmodel.dart';
 import '../hall_screen.dart';
 import '../shop_screen.dart';
@@ -204,6 +206,10 @@ class PetDetailSheet extends StatelessWidget {
     final stage = Sprites.forLevel(pet.level);
     final fainted = pet.hunger <= Balance.hungerMin;
 
+    final title = Achievements.titleById(pet.titleId);
+    final today = GameEngine.ymd(DateTime.now());
+    final quest = pet.questYmd == today ? Quests.byId(pet.questId) : null;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
@@ -213,18 +219,34 @@ class PetDetailSheet extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 68,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    color: Palette.tile,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: PetSprite(
-                    level: pet.level,
-                    asciiFace: pet.face,
-                    size: 56,
-                    dim: fainted,
+                // 정령을 톡 — 쓰다듬기 (Phase 5 2차)
+                InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () async {
+                    final reaction =
+                        await context.read<GameViewModel>().pat();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(SnackBar(
+                          content: Text(reaction),
+                          duration: const Duration(seconds: 2),
+                        ));
+                    }
+                  },
+                  child: Container(
+                    width: 68,
+                    height: 68,
+                    decoration: BoxDecoration(
+                      color: Palette.tile,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: PetSprite(
+                      level: pet.level,
+                      asciiFace: pet.face,
+                      size: 56,
+                      dim: fainted,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -232,6 +254,15 @@ class PetDetailSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (title != null)
+                        Text(
+                          '「${title.name}」',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Palette.accent,
+                          ),
+                        ),
                       Text(
                         pet.displayName,
                         style: const TextStyle(
@@ -314,6 +345,45 @@ class PetDetailSheet extends StatelessWidget {
               '${game.armor?.name ?? '—'} · ${game.accessory?.name ?? '—'}',
               style: const TextStyle(fontSize: 11, color: Palette.muted),
             ),
+            if (!pet.isEgg) ...[
+              const SizedBox(height: 4),
+              Text(
+                '💚 친밀도 Lv.${pet.bondLevel} (${pet.bondLabel}) — '
+                '정령을 톡 하면 쓰다듬기 · 🔥 연속 ${pet.streak}일',
+                style: const TextStyle(fontSize: 11, color: Palette.muted),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                quest == null
+                    ? '📌 오늘의 부탁 — 글을 쓰거나 쓰다듬으면 도착해요'
+                    : pet.questDone
+                        ? '📌 오늘의 부탁 완료! ✓'
+                        : '📌 오늘의 부탁: "${quest.desc}" '
+                            '(${pet.questProgress}/${quest.target})',
+                style: TextStyle(
+                  fontSize: 11,
+                  color:
+                      pet.questDone ? Palette.accent : Palette.muted,
+                  fontWeight:
+                      pet.questDone ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+            if (pet.lastLetter != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: InkWell(
+                  onTap: () => _showLetter(context, pet.lastLetter!),
+                  child: const Text(
+                    '📮 정령의 편지 읽기',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Palette.accent,
+                    ),
+                  ),
+                ),
+              ),
             if (pet.buffActive)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -414,6 +484,35 @@ class PetDetailSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 정령의 편지 다이얼로그 (Phase 5 2차)
+void _showLetter(BuildContext context, String letter) {
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: Palette.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Palette.line),
+      ),
+      title: const Text('📮 정령의 편지',
+          style: TextStyle(color: Palette.ink, fontSize: 16)),
+      content: Text(
+        letter,
+        style: const TextStyle(
+            fontSize: 13.5, color: Palette.ink, height: 1.8),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('소중히 접어 두기',
+              style: TextStyle(
+                  color: Palette.accent, fontWeight: FontWeight.bold)),
+        ),
+      ],
+    ),
+  );
 }
 
 class _GaugeRow extends StatelessWidget {

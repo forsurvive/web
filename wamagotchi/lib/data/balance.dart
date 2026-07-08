@@ -113,6 +113,27 @@ class Balance {
   /// 이후 환생마다 추가 배율
   static const double prestigeExtraBonus = 0.25;
 
+  // ── 친밀도·교감 (Phase 5 2차 — 시스템 기획서 3.2~3.4) ─────────
+  /// 오늘의 첫 저장 친밀도
+  static const int bondFirstSave = 5;
+
+  /// 쓰다듬기 1회 친밀도와 일일 유효 횟수
+  static const int bondPat = 1;
+  static const int bondPatDailyCap = 10;
+
+  /// 간식 사용 친밀도
+  static const int bondSnack = 2;
+
+  /// 정령의 부탁 완료 친밀도
+  static const int bondQuest = 10;
+
+  /// 친밀도 레벨당 필요치와 최대 레벨
+  static const int bondPerLevel = 100;
+  static const int bondMaxLevel = 10;
+
+  /// 스트릭 마일스톤 보상 (일수 → 마나)
+  static const Map<int, int> streakManaRewards = {3: 200, 7: 500, 30: 2000};
+
   // ── 성장 단계 (시스템 기획서 1.4) ─────────────────────────────
   /// 알이 부화하는 레벨 (부화 시 유저가 이름을 지어 준다)
   static const int hatchLevel = 5;

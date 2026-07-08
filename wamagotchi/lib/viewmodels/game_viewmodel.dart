@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../data/achievements.dart';
 import '../data/balance.dart';
 import '../data/classes.dart';
 import '../data/dungeons.dart';
@@ -114,6 +115,7 @@ class GameViewModel extends ChangeNotifier {
     if (_logs.isEmpty) {
       _addLog('알이 도착했다. 글을 쓰면 깨어난다…');
     }
+    _maybeWriteLetter();
     settle();
     _timer ??= Timer.periodic(const Duration(minutes: 1), (_) => settle());
     await _persist();
@@ -229,6 +231,28 @@ class GameViewModel extends ChangeNotifier {
     final firstSaveOfDay = _state.lastSaveYmd != today;
     final wasExploring = _state.isExploring;
 
+    // 부탁·스트릭·친밀도 (Phase 5 2차)
+    _ensureQuest(today);
+    if (firstSaveOfDay) {
+      final yesterday =
+          GameEngine.ymd(now.subtract(const Duration(days: 1)));
+      _state.streak = _state.lastSaveYmd == yesterday ? _state.streak + 1 : 1;
+      if (_state.streak > _state.streakBest) {
+        _state.streakBest = _state.streak;
+      }
+      final streakReward = Balance.streakManaRewards[_state.streak];
+      if (streakReward != null) {
+        _state.mana += streakReward;
+        final message = '🔥 ${_state.streak}일 연속 기록! (+$streakReward M)';
+        _addLog(message);
+        onHighlight?.call(message);
+      } else if (_state.streak > 1) {
+        _addLog('🔥 ${_state.streak}일 연속 기록 중!');
+      }
+      _addBond(Balance.bondFirstSave);
+    }
+    _questProgress('q_chars', gainedChars);
+
     // 클래스 판정용 저장 통계 기록 (Phase 5)
     _state.saveStats.add(SaveStat(now, gainedChars));
     if (_state.saveStats.length > Balance.classStatsWindow) {
@@ -297,6 +321,9 @@ class GameViewModel extends ChangeNotifier {
       onHighlight?.call(message);
     }
 
+    // 6) 업적 판정 (Phase 5 2차)
+    _checkAchievements();
+
     await _persist();
     notifyListeners();
 
@@ -307,6 +334,192 @@ class GameViewModel extends ChangeNotifier {
       levelsGained: expResult.levelsGained,
       justHatched: justHatched,
     );
+  }
+
+  // ── 친밀도·부탁·스트릭·업적·편지 (Phase 5 2차) ──────────────
+
+  /// 친밀도 추가 (+레벨업 하이라이트)
+  void _addBond(int amount) {
+    final beforeLevel = _state.bondLevel;
+    _state.bond += amount;
+    if (_state.bondLevel > beforeLevel) {
+      final message = '친밀도 Lv.${_state.bondLevel} 달성 — '
+          "이제 '${_state.bondLabel}' 사이!";
+      _addLog(message);
+      onHighlight?.call(message);
+    }
+  }
+
+  /// 오늘의 부탁이 없으면 발급한다
+  void _ensureQuest(String today) {
+    if (_state.questYmd == today) return;
+    final quest = Quests.forDay(DateTime.now());
+    _state.questYmd = today;
+    _state.questId = quest.id;
+    _state.questProgress = 0;
+    _state.questDone = false;
+    if (!_state.isEgg) {
+      _addLog('오늘의 부탁 — ${_state.displayName}: "${quest.desc}"');
+    }
+  }
+
+  /// 부탁 진행. [questId]가 현재 부탁과 일치할 때만 반영.
+  void _questProgress(String questId, int amount) {
+    if (_state.questDone || _state.questId != questId) return;
+    final quest = Quests.byId(questId);
+    if (quest == null) return;
+    _state.questProgress += amount;
+    if (_state.questProgress >= quest.target) {
+      _state.questDone = true;
+      _addBond(Balance.bondQuest);
+      _state.inventory['snack'] = (_state.inventory['snack'] ?? 0) + 1;
+      final message = '부탁 완료! ${_state.displayName}이(가) 기뻐하며 '
+          '[간식]을 물어다 줬다 (친밀도 +${Balance.bondQuest})';
+      _addLog(message);
+      onHighlight?.call(message);
+    }
+  }
+
+  /// 쓰다듬기. UI에 보여줄 반응 대사를 돌려준다.
+  Future<String> pat() async {
+    final today = GameEngine.ymd(DateTime.now());
+    _ensureQuest(today);
+    if (_state.patYmd != today) {
+      _state.patYmd = today;
+      _state.patsToday = 0;
+    }
+
+    String reaction;
+    if (_state.isEgg) {
+      reaction = '알이 따뜻해졌다… 안에서 작게 톡, 소리가 났다.';
+      _addLog(reaction);
+    } else if (_state.patsToday >= Balance.bondPatDailyCap) {
+      reaction = '${_state.displayName}이(가) 간지럽다는 듯 웃는다. (오늘은 충분해요!)';
+    } else {
+      _state.patsToday += 1;
+      _addBond(Balance.bondPat);
+      const reactions = [
+        '기분 좋게 몸을 흔든다!',
+        '포근하게 눈을 감는다…',
+        '하트가 뿅 떠올랐다!',
+        '당신의 손에 머리를 비빈다.',
+      ];
+      reaction = '${_state.displayName}이(가) '
+          '${reactions[(_state.patsToday - 1) % reactions.length]} '
+          '(친밀도 +${Balance.bondPat})';
+      _addLog(reaction);
+      _questProgress('q_pats', 1);
+    }
+
+    _checkAchievements();
+    await _persist();
+    notifyListeners();
+    return reaction;
+  }
+
+  /// 보유한 칭호 목록 (달성한 업적이 부여한 것)
+  List<TitleSpec> get ownedTitles {
+    final owned = <TitleSpec>[];
+    for (final a in Achievements.all) {
+      if (a.titleId != null && _state.achievements.contains(a.id)) {
+        final t = Achievements.titleById(a.titleId);
+        if (t != null) owned.add(t);
+      }
+    }
+    return owned;
+  }
+
+  /// 칭호 장착 (null이면 해제). 성공하면 null.
+  Future<String?> setTitle(String? titleId) async {
+    if (titleId != null && !ownedTitles.any((t) => t.id == titleId)) {
+      return '아직 얻지 못한 칭호예요.';
+    }
+    _state.titleId = titleId;
+    if (titleId != null) {
+      _addLog('칭호 「${Achievements.titleById(titleId)!.name}」 장착!');
+    }
+    await _persist();
+    notifyListeners();
+    return null;
+  }
+
+  /// 업적 일괄 판정 (멱등 — 새로 달성한 것만 보상)
+  void _checkAchievements() {
+    for (final a in Achievements.all) {
+      if (_state.achievements.contains(a.id)) continue;
+      final met = switch (a.id) {
+        'first_save' => _state.totalChars > 0,
+        'hatch' => !_state.isEgg,
+        'chars_10k' => _state.totalChars >= 10000,
+        'chars_100k' => _state.totalChars >= 100000,
+        'chars_1m' => _state.totalChars >= 1000000,
+        'streak_7' => _state.streakBest >= 7,
+        'streak_30' => _state.streakBest >= 30,
+        'class_awaken' => _state.classId != null,
+        'bond_5' => _state.bondLevel >= 5,
+        'prestige_1' => _state.prestigeCount >= 1,
+        _ => false,
+      };
+      if (!met) continue;
+      _state.achievements.add(a.id);
+      _state.mana += a.rewardMana;
+      final title = Achievements.titleById(a.titleId);
+      final message = '업적 달성! [${a.name}] (+${a.rewardMana} M'
+          '${title != null ? ' · 칭호 「${title.name}」 획득' : ''})';
+      _addLog(message);
+      onHighlight?.call(message);
+    }
+  }
+
+  /// 주가 바뀌었으면 정령의 편지를 쓴다 (앱 시작 시 호출)
+  void _maybeWriteLetter() {
+    final week =
+        DateTime.now().millisecondsSinceEpoch ~/ 86400000 ~/ 7;
+    if (_state.letterWeek == 0) {
+      // 최초 실행: 이번 주를 기준점으로만 잡는다
+      _state.letterWeek = week;
+      return;
+    }
+    if (week <= _state.letterWeek || _state.isEgg) return;
+
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    var chars7 = 0;
+    final hourBands = <String, int>{};
+    for (final s in _state.saveStats) {
+      if (s.at.isBefore(cutoff)) continue;
+      chars7 += s.chars;
+      final h = s.at.hour;
+      final band = h >= 22 || h < 5
+          ? '밤'
+          : h < 11
+              ? '아침'
+              : h < 17
+                  ? '낮'
+                  : '저녁';
+      hourBands[band] = (hourBands[band] ?? 0) + 1;
+    }
+    String favBand = '낮';
+    var best = -1;
+    hourBands.forEach((band, count) {
+      if (count > best) {
+        best = count;
+        favBand = band;
+      }
+    });
+
+    _state.lastLetter = chars7 > 0
+        ? '작가님께.\n\n지난주에 글을 $chars7자나 주셔서 배가 아주 든든했어요. '
+            '특히 $favBand에 쓴 글이 제일 고소했어요.\n'
+            '덕분에 지금은 ${dungeon.name} ${_state.floor}층까지 왔답니다.\n'
+            '이번 주의 글도 기다릴게요.\n\n— ${_state.displayName} 올림'
+        : '작가님께.\n\n지난주에는 글이 조금 그리웠어요… '
+            '괜찮아요, 바쁜 날도 있는 거니까요.\n'
+            '오늘 한 줄이면 저는 충분히 행복해요.\n\n— ${_state.displayName} 올림';
+    _state.letterWeek = week;
+
+    const notice = '📮 정령의 편지가 도착했어요 — 정령 패널에서 읽어 보세요';
+    _addLog(notice);
+    _deliverHighlights([notice]);
   }
 
   // ── 키워드 이벤트 (Phase 4 — 시스템 기획서 4.1) ─────────────
@@ -340,6 +553,7 @@ class GameViewModel extends ChangeNotifier {
               _state.hunger + Balance.keywordHungerGain);
           _addLog('따뜻한 말의 힘! ${_state.displayName}의 포만감 '
               '+${Balance.keywordHungerGain.toStringAsFixed(0)}%');
+          _questProgress('q_positive', 1);
         case 'stress':
           _state.inventory['stress_crystal'] =
               (_state.inventory['stress_crystal'] ?? 0) + 1;
@@ -461,6 +675,12 @@ class GameViewModel extends ChangeNotifier {
           '+${item.hungerRestore.toStringAsFixed(0)}%');
     }
 
+    // 간식은 교감의 뜻 (친밀도 +2)
+    if (item.id == 'snack') {
+      _addBond(Balance.bondSnack);
+      _checkAchievements();
+    }
+
     // 카페인 물약: 즉시 탐험 전진 (Phase 5)
     if (item.bonusTicks > 0) {
       if (_state.isExploring) {
@@ -531,10 +751,19 @@ class GameViewModel extends ChangeNotifier {
     _state.buffManaUntil = null;
     _state.lifeStartTotalChars = _state.totalChars;
     _state.lifeStartAt = now;
+    // 교감은 정령별 — 새 정령과 처음부터 (스트릭·업적·칭호는 작가의 자산이라 유지)
+    _state.bond = 0;
+    _state.patYmd = null;
+    _state.patsToday = 0;
+    _state.questYmd = null;
+    _state.questId = null;
+    _state.questProgress = 0;
+    _state.questDone = false;
 
     _addLog('새로운 알이 도착했다. 이제 글자당 마나 '
         '×${_state.prestigeManaMult.toStringAsFixed(2)}!');
 
+    _checkAchievements(); // prestige_1
     await _persist();
     notifyListeners();
     return null;
