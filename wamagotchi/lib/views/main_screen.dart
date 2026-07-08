@@ -125,11 +125,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     _draftTimer?.cancel();
-    final (gained, memo) =
+    final (gained, memo, keywordHits) =
         await memoVM.saveMemo(id: _editingMemoId, title: title, body: body);
     setState(() => _editingMemoId = memo.id);
 
-    final result = await gameVM.feed(gained);
+    final result = await gameVM.feed(gained, keywordHits: keywordHits);
 
     if (result.levelsGained > 0) {
       _showSnack('저장 +${result.gainedChars}자 · 레벨 업! '

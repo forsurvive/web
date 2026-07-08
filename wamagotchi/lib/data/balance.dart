@@ -71,6 +71,23 @@ class Balance {
   static const int loseRetreatFloors = 1;
   static const int bossLoseRetreatFloors = 5;
 
+  // ── 키워드 이벤트 (Phase 4 — 시스템 기획서 4.1) ───────────────
+  /// 카테고리당 1일 발동 상한 (어뷰징 방지)
+  static const int keywordDailyCap = 3;
+
+  /// [성취의 기운] 버프: 지속 시간(분)과 마나 배율
+  static const int buffManaDurationMinutes = 60;
+  static const double buffManaMultiplier = 1.2;
+
+  /// 긍정 키워드: 포만감 회복 (%p)
+  static const double keywordHungerGain = 10.0;
+
+  /// 오류 키워드: 버그 벌레 처치 보상 마나
+  static const int bugBountyMana = 300;
+
+  /// 마감 키워드: 즉시 진행하는 보너스 탐험 틱 수
+  static const int deadlineBonusTicks = 2;
+
   // ── 성장 단계 (시스템 기획서 1.4) ─────────────────────────────
   /// 알이 부화하는 레벨 (부화 시 유저가 이름을 지어 준다)
   static const int hatchLevel = 5;

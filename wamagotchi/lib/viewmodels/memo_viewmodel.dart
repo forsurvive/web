@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../logic/game_engine.dart';
+import '../logic/keyword_engine.dart';
 import '../models/memo.dart';
 import '../services/storage_service.dart';
 
@@ -35,39 +36,50 @@ class MemoViewModel extends ChangeNotifier {
     return null;
   }
 
-  /// 메모를 저장(신규 또는 수정)하고 "새로 늘어난 글자 수(공백 제외)"를 반환한다.
+  /// 메모를 저장(신규 또는 수정)하고 정산 재료를 반환한다:
+  /// (새로 늘어난 글자 수, 저장된 메모, 새로 추가된 키워드 히트)
   ///
-  /// 반환값의 두 번째 요소는 저장된 메모(신규 생성 시 id 확인용).
-  Future<(int, Memo)> saveMemo({
+  /// 키워드는 마지막 저장 시점의 기준 카운트(memo.kwCounts) 대비
+  /// "늘어난" 카테고리만 히트가 된다 (Phase 4).
+  Future<(int, Memo, List<KeywordHit>)> saveMemo({
     String? id,
     required String title,
     required String body,
   }) async {
     final newCount = GameEngine.countChars(title) + GameEngine.countChars(body);
+    final newKwCounts = KeywordEngine.countsFor('$title\n$body');
 
     Memo? memo = findById(id);
     int gained;
+    List<KeywordHit> hits;
 
     if (memo == null) {
+      hits = KeywordEngine.detect(oldCounts: const {}, newCounts: newKwCounts);
       memo = Memo(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         title: title,
         body: body,
         charCount: newCount,
+        kwCounts: newKwCounts,
       );
       _memos.add(memo);
       gained = GameEngine.gainedChars(before: 0, after: newCount);
     } else {
+      hits = KeywordEngine.detect(
+        oldCounts: memo.kwCounts,
+        newCounts: newKwCounts,
+      );
       gained = GameEngine.gainedChars(before: memo.charCount, after: newCount);
       memo.title = title;
       memo.body = body;
       memo.charCount = newCount;
+      memo.kwCounts = newKwCounts;
       memo.updatedAt = DateTime.now();
     }
 
     await _storage.saveMemos(_memos);
     notifyListeners();
-    return (gained, memo);
+    return (gained, memo, hits);
   }
 
   /// 초안 자동 저장: 제목/본문만 갱신하고 charCount는 건드리지 않는다.

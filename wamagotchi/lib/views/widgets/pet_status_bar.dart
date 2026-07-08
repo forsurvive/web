@@ -5,6 +5,7 @@ import '../../data/balance.dart';
 import '../../data/palette.dart';
 import '../../data/sprites.dart';
 import '../../viewmodels/game_viewmodel.dart';
+import '../shop_screen.dart';
 import 'pet_sprite.dart';
 
 /// 슬림 정령 칩 (v2 라이팅 퍼스트 UI).
@@ -113,9 +114,9 @@ class _MiniBar extends StatelessWidget {
   }
 }
 
-/// 정령 상세 시트 열기
-void showPetDetailSheet(BuildContext context) {
-  showModalBottomSheet<void>(
+/// 정령 상세 시트 열기 (시트에서 '상점·가방'을 누르면 상점 화면으로)
+Future<void> showPetDetailSheet(BuildContext context) async {
+  final action = await showModalBottomSheet<String>(
     context: context,
     backgroundColor: Palette.surface,
     shape: const RoundedRectangleBorder(
@@ -123,6 +124,11 @@ void showPetDetailSheet(BuildContext context) {
     ),
     builder: (_) => const PetDetailSheet(),
   );
+  if (action == 'shop' && context.mounted) {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ShopScreen()),
+    );
+  }
 }
 
 /// 정령 상세: 큰 스프라이트 + 게이지 + 통계 + 최근 로그
@@ -227,6 +233,44 @@ class PetDetailSheet extends StatelessWidget {
                           '${Balance.exploreHungerThreshold.toStringAsFixed(0)}% '
                           ' 이상이면 출발해요. 글을 써 주세요!',
               style: const TextStyle(fontSize: 11, color: Palette.muted),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '장비: ${game.weapon?.name ?? '—'} · '
+              '${game.armor?.name ?? '—'} · ${game.accessory?.name ?? '—'}',
+              style: const TextStyle(fontSize: 11, color: Palette.muted),
+            ),
+            if (pet.buffActive)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '✨ 성취의 기운 — 마나 +20% '
+                  '(${pet.buffManaUntil!.difference(DateTime.now()).inMinutes + 1}분 남음)',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Palette.accent,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Palette.accent,
+                  side: const BorderSide(color: Palette.line),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                icon: const Icon(Icons.storefront_outlined, size: 18),
+                label: const Text(
+                  '상점 · 가방',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                onPressed: () => Navigator.of(context).pop('shop'),
+              ),
             ),
             const SizedBox(height: 12),
             Container(height: 1, color: Palette.line),

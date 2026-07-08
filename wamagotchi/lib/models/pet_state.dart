@@ -1,4 +1,5 @@
 import '../data/balance.dart';
+import '../data/items.dart';
 
 /// 정령(펫)의 상태.
 ///
@@ -30,6 +31,23 @@ class PetState {
   /// 현재 층에서 진행한 룸 수
   int roomsDone;
 
+  // ── 장비·인벤토리 (Phase 4) ─────────────────────────────
+  /// 장착 슬롯 (아이템 id)
+  String? weaponId;
+  String? armorId;
+  String? accessoryId;
+
+  /// 보유 아이템 (id → 개수). 장착 중인 장비는 여기서 빠져 있다.
+  Map<String, int> inventory;
+
+  // ── 버프·키워드 (Phase 4) ───────────────────────────────
+  /// [성취의 기운] 종료 시각 (null이면 비활성)
+  DateTime? buffManaUntil;
+
+  /// 키워드 일일 상한 관리: 기준 날짜와 카테고리별 발동 횟수
+  String? kwYmd;
+  Map<String, int> kwUsed;
+
   /// 포만감 자연 감소를 마지막으로 정산한 시각
   DateTime lastHungerTickAt;
 
@@ -48,11 +66,24 @@ class PetState {
     this.dungeonIndex = 0,
     this.floor = 1,
     this.roomsDone = 0,
+    this.weaponId = Items.starterWeaponId,
+    this.armorId,
+    this.accessoryId,
+    Map<String, int>? inventory,
+    this.buffManaUntil,
+    this.kwYmd,
+    Map<String, int>? kwUsed,
     DateTime? lastHungerTickAt,
     this.lastSaveYmd,
     DateTime? createdAt,
-  })  : lastHungerTickAt = lastHungerTickAt ?? DateTime.now(),
+  })  : inventory = inventory ?? {},
+        kwUsed = kwUsed ?? {},
+        lastHungerTickAt = lastHungerTickAt ?? DateTime.now(),
         createdAt = createdAt ?? DateTime.now();
+
+  /// [성취의 기운] 버프가 지금 활성인가
+  bool get buffActive =>
+      buffManaUntil != null && DateTime.now().isBefore(buffManaUntil!);
 
   /// 지금 탐험이 가동 중인가 (포만감 조건)
   bool get isExploring =>
@@ -95,6 +126,13 @@ class PetState {
         'dungeonIndex': dungeonIndex,
         'floor': floor,
         'roomsDone': roomsDone,
+        'weaponId': weaponId,
+        'armorId': armorId,
+        'accessoryId': accessoryId,
+        'inventory': inventory,
+        'buffManaUntil': buffManaUntil?.toIso8601String(),
+        'kwYmd': kwYmd,
+        'kwUsed': kwUsed,
         'lastHungerTickAt': lastHungerTickAt.toIso8601String(),
         'lastSaveYmd': lastSaveYmd,
         'createdAt': createdAt.toIso8601String(),
@@ -111,6 +149,19 @@ class PetState {
       dungeonIndex: (json['dungeonIndex'] as num?)?.toInt() ?? 0,
       floor: (json['floor'] as num?)?.toInt() ?? 1,
       roomsDone: (json['roomsDone'] as num?)?.toInt() ?? 0,
+      weaponId: json['weaponId'] as String? ?? Items.starterWeaponId,
+      armorId: json['armorId'] as String?,
+      accessoryId: json['accessoryId'] as String?,
+      inventory: (json['inventory'] as Map<String, dynamic>?)
+              ?.map((k, v) => MapEntry(k, (v as num).toInt())) ??
+          {},
+      buffManaUntil: json['buffManaUntil'] != null
+          ? DateTime.parse(json['buffManaUntil'] as String)
+          : null,
+      kwYmd: json['kwYmd'] as String?,
+      kwUsed: (json['kwUsed'] as Map<String, dynamic>?)
+              ?.map((k, v) => MapEntry(k, (v as num).toInt())) ??
+          {},
       lastHungerTickAt: json['lastHungerTickAt'] != null
           ? DateTime.parse(json['lastHungerTickAt'] as String)
           : DateTime.now(),

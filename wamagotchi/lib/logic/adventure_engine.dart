@@ -9,6 +9,30 @@ import 'dart:math';
 import '../data/balance.dart';
 import '../data/dungeons.dart';
 
+/// 장비에서 오는 탐험 보정치 (Phase 4)
+class AdventureMods {
+  /// 무기: 승률 계산 시 정령 레벨에 가산
+  final int atkBonus;
+
+  /// 방어구: 패배 시 후퇴 무효 확률
+  final double guardChance;
+
+  /// 장신구: 치명타 확률 보너스
+  final double critBonus;
+
+  /// 장신구: 희귀 전리품 확률 보너스
+  final double rareBonus;
+
+  const AdventureMods({
+    this.atkBonus = 0,
+    this.guardChance = 0,
+    this.critBonus = 0,
+    this.rareBonus = 0,
+  });
+
+  static const AdventureMods none = AdventureMods();
+}
+
 /// 탐험 틱 1회의 결과
 class TickOutcome {
   final String message;
@@ -73,15 +97,17 @@ class AdventureEngine {
     required int floor,
     required int roomsDone,
     required Random rng,
+    AdventureMods mods = AdventureMods.none,
   }) {
     final di = _clampInt(dungeonIndex, 0, Dungeons.all.length - 1);
     final dungeon = Dungeons.all[di];
     final f = _clampInt(floor, 1, dungeon.floors);
+    final effLevel = petLevel + mods.atkBonus;
 
     // ── 보스 층 ──────────────────────────────────────────
     if (f >= dungeon.floors) {
       final boss = dungeon.boss;
-      final win = rng.nextDouble() < winChance(petLevel, boss.level);
+      final win = rng.nextDouble() < winChance(effLevel, boss.level);
       if (win) {
         final mana = battleReward(boss, f);
         // 다음 던전 개방 or 같은 던전 재입장
@@ -107,6 +133,17 @@ class AdventureEngine {
           hungerGained: 0,
           dungeonIndex: di,
           floor: 1,
+          roomsDone: 0,
+        );
+      }
+      if (rng.nextDouble() < mods.guardChance) {
+        return TickOutcome(
+          message: '보스 ${boss.name}에게 패했지만, 방패가 밀려남을 막아냈다! (제자리 사수)',
+          highlight: false,
+          manaGained: 0,
+          hungerGained: 0,
+          dungeonIndex: di,
+          floor: f,
           roomsDone: 0,
         );
       }
@@ -138,14 +175,26 @@ class AdventureEngine {
           .where((m) => !m.isBoss && m.minFloor <= f)
           .toList();
       final monster = candidates[rng.nextInt(candidates.length)];
-      final win = rng.nextDouble() < winChance(petLevel, monster.level);
+      final win = rng.nextDouble() < winChance(effLevel, monster.level);
       if (win) {
-        final crit = rng.nextDouble() < Balance.critChance;
+        final crit =
+            rng.nextDouble() < (Balance.critChance + mods.critBonus);
         mana = battleReward(monster, f) * (crit ? 2 : 1);
         message = '${dungeon.name} $f층 — ${monster.name} 처치!'
             '${crit ? ' 치명타!' : ''} (+$mana M)';
         newRooms += 1;
       } else {
+        if (rng.nextDouble() < mods.guardChance) {
+          return TickOutcome(
+            message: '${monster.name}에게 패했지만, 방패가 밀려남을 막아냈다!',
+            highlight: false,
+            manaGained: 0,
+            hungerGained: 0,
+            dungeonIndex: di,
+            floor: f,
+            roomsDone: roomsDone,
+          );
+        }
         newFloor = _clampInt(f - Balance.loseRetreatFloors, 1, dungeon.floors);
         newRooms = 0;
         return TickOutcome(
@@ -160,7 +209,8 @@ class AdventureEngine {
       }
     } else if (roll < Balance.roomWeightBattle + Balance.roomWeightTreasure) {
       // 보물
-      final rare = rng.nextDouble() < Balance.rareTreasureChance;
+      final rare =
+          rng.nextDouble() < (Balance.rareTreasureChance + mods.rareBonus);
       mana = treasureReward(f, rare: rare);
       if (rare) {
         final loot = dungeon.lootNames[rng.nextInt(dungeon.lootNames.length)];
