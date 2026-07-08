@@ -1,0 +1,70 @@
+# Wamagotchi 테스트 APK 자동 빌드
+#
+# wamagotchi/ 코드가 이 브랜치에 푸시될 때마다:
+#   정적 분석 → 단위 테스트 → 릴리스 APK 빌드 → 'wamagotchi-test' 릴리스에 첨부
+# 스마트폰에서 릴리스 페이지를 열어 APK를 내려받아 설치하면 된다.
+name: Wamagotchi APK
+
+on:
+  push:
+    branches: [claude/text-echo-pet-rpg-vvdxjp]
+    paths:
+      - 'wamagotchi/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wamagotchi
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: 안드로이드 플랫폼 폴더 생성 (저장소에는 Dart 코드만 있음)
+        run: flutter create --org com.oldtower --project-name wamagotchi --platforms android .
+
+      - name: 의존성 설치
+        run: flutter pub get
+
+      - name: 정적 분석 (오류만 실패 처리)
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: 단위 테스트
+        run: flutter test
+
+      - name: 릴리스 APK 빌드
+        run: flutter build apk --release
+
+      - name: APK 파일명 정리
+        run: cp build/app/outputs/flutter-apk/app-release.apk wamagotchi-test.apk
+
+      - name: 테스트 릴리스에 APK 첨부
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: wamagotchi-test
+          name: Wamagotchi 테스트 빌드
+          prerelease: true
+          body: |
+            📱 스마트폰 설치 방법
+            1. 폰 브라우저로 이 페이지를 열고 아래 wamagotchi-test.apk를 내려받기
+            2. 다운로드 알림(또는 내 파일 앱)에서 APK를 탭
+            3. "출처를 알 수 없는 앱 설치" 허용 → 설치
+            4. Play 프로텍트 경고가 나오면 "무시하고 설치" (테스트 빌드라 정상)
+
+            이 릴리스는 브랜치에 푸시될 때마다 최신 빌드로 갱신됩니다.
+          files: wamagotchi/wamagotchi-test.apk
